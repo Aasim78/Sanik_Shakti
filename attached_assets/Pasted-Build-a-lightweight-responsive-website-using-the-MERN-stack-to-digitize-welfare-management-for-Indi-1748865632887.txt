@@ -1,0 +1,87 @@
+Build a lightweight, responsive website using the MERN stack to digitize welfare management for Indian Armed Forces personnel and families. Focus on implementing core features while maintaining scalability. Prioritize simplicity and efficiency to work within the limited resource allocation.
+
+Core Pages and Features:
+Home Page:
+
+Display the platform's name: "Sainik Saathi" with a tagline: "Simplifying Welfare for Armed Forces."
+
+Include a Login/Register button and highlights of the platform's key features.
+
+Registration & Login:
+
+Implement JWT-based login with a simple role selection (Soldier, Family Member, Admin).
+
+Skip advanced Aadhaar verification for now; just collect service number, email, and password.
+
+Dashboard:
+
+Provide role-based views:
+
+Soldiers: Access schemes and applications.
+
+Family Members: View family-focused schemes and emergency features.
+
+Admins: Basic approval system for schemes and grievances.
+
+Include a Quick Actions Panel with:
+
+"Apply for Scheme" button.
+
+"SOS Alert" button for emergencies (basic notification functionality).
+
+Welfare Scheme Management:
+
+Simple catalog of welfare schemes, allowing filtering by role and eligibility.
+
+Allow scheme application with a basic form.
+
+Track application status (Pending, Approved).
+
+Emergency SOS Network:
+
+Add a basic SOS button to notify admins and a predefined emergency contact list.
+
+No geolocation; include static alerts only.
+
+Grievance Redressal:
+
+Simple complaint submission form with status tracking (Filed, Resolved).
+
+Role-based access for admins to mark grievances as resolved.
+
+Technical Scope:
+Frontend:
+
+Use React.js with minimal dependencies (e.g., Tailwind CSS for styling).
+
+Optimize UI with basic components (forms, buttons, cards).
+
+Backend:
+
+Use Node.js and Express.js to create RESTful APIs for:
+
+Registration/Login.
+
+Scheme management (CRUD).
+
+SOS alerts.
+
+Grievance handling.
+
+Database:
+
+Use MongoDB Atlas for storing user profiles, schemes, applications, and grievances.
+
+Deployment:
+
+Deploy directly on Replit, ensuring fast load times by limiting API calls and data volume.
+
+Additional Constraints:
+Avoid integrating complex third-party APIs (e.g., DigiLocker, UPI) in this phase.
+
+Skip advanced features like resource sharing or community chat to stay within resource limits.
+
+Use simple placeholders for advanced modules (e.g., scheme tracker with static data).
+
+Expected Deliverables:
+A functional prototype with basic role-based access, welfare scheme catalog, SOS alerts, and grievance submission. The design should be clean, efficient, and easy to expand in future iterations.
