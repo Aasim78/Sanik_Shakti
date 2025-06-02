@@ -3,8 +3,11 @@ import {
   Scheme, InsertScheme,
   Application, InsertApplication,
   Grievance, InsertGrievance,
-  SosAlert, InsertSosAlert
+  SosAlert, InsertSosAlert,
+  users, schemes, applications, grievances, sosAlerts
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -34,201 +37,104 @@ export interface IStorage {
   getSosAlerts(): Promise<SosAlert[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User> = new Map();
-  private schemes: Map<number, Scheme> = new Map();
-  private applications: Map<number, Application> = new Map();
-  private grievances: Map<number, Grievance> = new Map();
-  private sosAlerts: Map<number, SosAlert> = new Map();
-  
-  private currentUserId = 1;
-  private currentSchemeId = 1;
-  private currentApplicationId = 1;
-  private currentGrievanceId = 1;
-  private currentSosAlertId = 1;
-
-  constructor() {
-    this.seedData();
-  }
-
-  private seedData() {
-    // Seed some initial schemes
-    const schemes: InsertScheme[] = [
-      {
-        title: "Children Education Grant",
-        description: "Financial assistance for children's education including school fees, books, and uniform expenses.",
-        category: "education",
-        amount: 25000,
-        eligibility: "All service personnel",
-        deadline: "March 31, 2024",
-        processingTime: "15-20 days",
-        isActive: true,
-      },
-      {
-        title: "Medical Emergency Fund",
-        description: "Emergency medical assistance for critical health conditions and surgeries for personnel and families.",
-        category: "medical",
-        amount: 50000,
-        eligibility: "Personnel & families",
-        deadline: "Open year-round",
-        processingTime: "7-10 days",
-        isActive: true,
-      },
-      {
-        title: "Home Loan Subsidy",
-        description: "Interest subsidy on home loans for armed forces personnel to support homeownership.",
-        category: "housing",
-        amount: 200000,
-        eligibility: "Active service only",
-        deadline: "December 31, 2024",
-        processingTime: "30-45 days",
-        isActive: true,
-      },
-    ];
-
-    schemes.forEach(scheme => {
-      const id = this.currentSchemeId++;
-      this.schemes.set(id, { 
-        ...scheme, 
-        id, 
-        createdAt: new Date() 
-      });
-    });
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async getUserByServiceNumber(serviceNumber: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.serviceNumber === serviceNumber);
+    const [user] = await db.select().from(users).where(eq(users.serviceNumber, serviceNumber));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { 
-      ...insertUser, 
-      id, 
-      createdAt: new Date() 
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   // Scheme methods
   async getSchemes(): Promise<Scheme[]> {
-    return Array.from(this.schemes.values()).filter(scheme => scheme.isActive);
+    return await db.select().from(schemes).where(eq(schemes.isActive, true));
   }
 
   async getScheme(id: number): Promise<Scheme | undefined> {
-    return this.schemes.get(id);
+    const [scheme] = await db.select().from(schemes).where(eq(schemes.id, id));
+    return scheme || undefined;
   }
 
   async createScheme(insertScheme: InsertScheme): Promise<Scheme> {
-    const id = this.currentSchemeId++;
-    const scheme: Scheme = { 
-      ...insertScheme, 
-      id, 
-      createdAt: new Date() 
-    };
-    this.schemes.set(id, scheme);
+    const [scheme] = await db.insert(schemes).values(insertScheme).returning();
     return scheme;
   }
 
   // Application methods
   async getApplicationsByUser(userId: number): Promise<Application[]> {
-    return Array.from(this.applications.values()).filter(app => app.userId === userId);
+    return await db.select().from(applications).where(eq(applications.userId, userId));
   }
 
   async createApplication(insertApplication: InsertApplication): Promise<Application> {
-    const id = this.currentApplicationId++;
-    const application: Application = { 
-      ...insertApplication, 
-      id, 
-      appliedAt: new Date(),
-      reviewedAt: null,
-      reviewedBy: null,
-      comments: null,
-    };
-    this.applications.set(id, application);
+    const [application] = await db.insert(applications).values(insertApplication).returning();
     return application;
   }
 
   async updateApplicationStatus(id: number, status: string, reviewedBy?: number, comments?: string): Promise<Application | undefined> {
-    const application = this.applications.get(id);
-    if (!application) return undefined;
-    
-    const updatedApplication = {
-      ...application,
-      status,
-      reviewedAt: new Date(),
-      reviewedBy: reviewedBy || null,
-      comments: comments || null,
-    };
-    this.applications.set(id, updatedApplication);
-    return updatedApplication;
+    const [application] = await db
+      .update(applications)
+      .set({
+        status,
+        reviewedAt: new Date(),
+        reviewedBy: reviewedBy || null,
+        comments: comments || null,
+      })
+      .where(eq(applications.id, id))
+      .returning();
+    return application || undefined;
   }
 
   // Grievance methods
   async getGrievancesByUser(userId: number): Promise<Grievance[]> {
-    return Array.from(this.grievances.values()).filter(grievance => grievance.userId === userId);
+    return await db.select().from(grievances).where(eq(grievances.userId, userId));
   }
 
   async getAllGrievances(): Promise<Grievance[]> {
-    return Array.from(this.grievances.values());
+    return await db.select().from(grievances);
   }
 
   async createGrievance(insertGrievance: InsertGrievance): Promise<Grievance> {
-    const id = this.currentGrievanceId++;
-    const grievance: Grievance = { 
-      ...insertGrievance, 
-      id, 
-      filedAt: new Date(),
-      resolvedAt: null,
-      resolvedBy: null,
-      resolution: null,
-    };
-    this.grievances.set(id, grievance);
+    const [grievance] = await db.insert(grievances).values(insertGrievance).returning();
     return grievance;
   }
 
   async updateGrievanceStatus(id: number, status: string, resolvedBy?: number, resolution?: string): Promise<Grievance | undefined> {
-    const grievance = this.grievances.get(id);
-    if (!grievance) return undefined;
-    
-    const updatedGrievance = {
-      ...grievance,
-      status,
-      resolvedAt: status === 'resolved' ? new Date() : null,
-      resolvedBy: resolvedBy || null,
-      resolution: resolution || null,
-    };
-    this.grievances.set(id, updatedGrievance);
-    return updatedGrievance;
+    const [grievance] = await db
+      .update(grievances)
+      .set({
+        status,
+        resolvedAt: status === 'resolved' ? new Date() : null,
+        resolvedBy: resolvedBy || null,
+        resolution: resolution || null,
+      })
+      .where(eq(grievances.id, id))
+      .returning();
+    return grievance || undefined;
   }
 
   // SOS Alert methods
   async createSosAlert(insertSosAlert: InsertSosAlert): Promise<SosAlert> {
-    const id = this.currentSosAlertId++;
-    const sosAlert: SosAlert = { 
-      ...insertSosAlert, 
-      id, 
-      sentAt: new Date(),
-      acknowledgedAt: null,
-      acknowledgedBy: null,
-    };
-    this.sosAlerts.set(id, sosAlert);
+    const [sosAlert] = await db.insert(sosAlerts).values(insertSosAlert).returning();
     return sosAlert;
   }
 
   async getSosAlerts(): Promise<SosAlert[]> {
-    return Array.from(this.sosAlerts.values());
+    return await db.select().from(sosAlerts);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
