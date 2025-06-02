@@ -44,7 +44,7 @@ export default function Schemes() {
   });
 
   const filteredSchemes = schemes?.filter((scheme: any) => {
-    const categoryMatch = !categoryFilter || scheme.category === categoryFilter;
+    const categoryMatch = !categoryFilter || categoryFilter === "all" || scheme.category === categoryFilter;
     const eligibilityMatch = !eligibilityFilter || scheme.eligibility.toLowerCase().includes(eligibilityFilter.toLowerCase());
     return categoryMatch && eligibilityMatch;
   }) || [];
@@ -87,7 +87,7 @@ export default function Schemes() {
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
+                    <SelectItem value="all">All Categories</SelectItem>
                     <SelectItem value="education">Education</SelectItem>
                     <SelectItem value="medical">Medical</SelectItem>
                     <SelectItem value="housing">Housing</SelectItem>
