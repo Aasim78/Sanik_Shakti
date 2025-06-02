@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 20 14.3% 4.1%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 25 5.3% 44.7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14.3% 4.1%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14.3% 4.1%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 120 60% 40%; /* Army Green */
+  --primary-foreground: 0 0% 98%;
+  --secondary: 60 4.8% 95.9%;
+  --secondary-foreground: 24 9.8% 10%;
+  --accent: 60 4.8% 95.9%;
+  --accent-foreground: 24 9.8% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --ring: 20 14.3% 4.1%;
+  --radius: 0.5rem;
+
+  /* Custom military colors */
+  --army-green-50: 120 60% 95%;
+  --army-green-100: 120 60% 90%;
+  --army-green-200: 120 60% 80%;
+  --army-green-300: 120 60% 70%;
+  --army-green-400: 120 60% 60%;
+  --army-green-500: 120 60% 50%;
+  --army-green-600: 120 60% 40%;
+  --army-green-700: 120 60% 30%;
+  --army-green-800: 120 60% 20%;
+  --army-green-900: 120 60% 10%;
+
+  --navy-50: 220 100% 98%;
+  --navy-100: 220 100% 95%;
+  --navy-200: 220 100% 90%;
+  --navy-300: 220 100% 80%;
+  --navy-400: 220 100% 70%;
+  --navy-500: 220 100% 60%;
+  --navy-600: 220 100% 50%;
+  --navy-700: 220 100% 40%;
+  --navy-800: 220 100% 30%;
+  --navy-900: 220 100% 20%;
+
+  --military-gold-50: 45 100% 98%;
+  --military-gold-100: 45 100% 95%;
+  --military-gold-200: 45 100% 90%;
+  --military-gold-300: 45 100% 80%;
+  --military-gold-400: 45 100% 70%;
+  --military-gold-500: 45 100% 60%;
+  --military-gold-600: 45 100% 50%;
+  --military-gold-700: 45 100% 40%;
+  --military-gold-800: 45 100% 30%;
+  --military-gold-900: 45 100% 20%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 120 60% 40%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes for military colors */
+.text-army-green-600 {
+  color: hsl(var(--army-green-600));
+}
+
+.bg-army-green-600 {
+  background-color: hsl(var(--army-green-600));
+}
+
+.bg-army-green-50 {
+  background-color: hsl(var(--army-green-50));
+}
+
+.bg-army-green-100 {
+  background-color: hsl(var(--army-green-100));
+}
+
+.text-army-green-800 {
+  color: hsl(var(--army-green-800));
+}
+
+.hover\:bg-army-green-700:hover {
+  background-color: hsl(var(--army-green-700));
+}
+
+.hover\:text-army-green-700:hover {
+  color: hsl(var(--army-green-700));
+}
+
+.hover\:text-army-green-500:hover {
+  color: hsl(var(--army-green-500));
+}
+
+.hover\:bg-army-green-50:hover {
+  background-color: hsl(var(--army-green-50));
+}
+
+.text-military-gold-300 {
+  color: hsl(var(--military-gold-300));
+}
+
+.text-military-gold-600 {
+  color: hsl(var(--military-gold-600));
+}
+
+.bg-military-gold-500 {
+  background-color: hsl(var(--military-gold-500));
+}
+
+.hover\:bg-military-gold-600:hover {
+  background-color: hsl(var(--military-gold-600));
+}
+
+.text-navy-600 {
+  color: hsl(var(--navy-600));
+}
+
+.focus\:ring-army-green-500:focus {
+  --tw-ring-color: hsl(var(--army-green-500));
+}
+
+.focus\:border-army-green-500:focus {
+  --tw-border-opacity: 1;
+  border-color: hsl(var(--army-green-500));
+}
+
+.focus\:ring-offset-2:focus {
+  --tw-ring-offset-width: 2px;
+}
