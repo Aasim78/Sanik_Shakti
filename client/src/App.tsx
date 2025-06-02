@@ -11,6 +11,8 @@ import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Schemes from "@/pages/schemes";
 import Grievances from "@/pages/grievances";
+import Marketplace from "@/pages/marketplace";
+import Community from "@/pages/community";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -70,6 +72,16 @@ function Router() {
         <Route path="/grievances">
           <ProtectedRoute>
             <Grievances />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/marketplace">
+          <ProtectedRoute>
+            <Marketplace />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/community">
+          <ProtectedRoute>
+            <Community />
           </ProtectedRoute>
         </Route>
         <Route component={NotFound} />
