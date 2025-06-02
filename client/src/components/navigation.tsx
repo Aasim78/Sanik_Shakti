@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Home, Bell, LogOut } from "lucide-react";
+import { Shield, Home, Bell, LogOut, LayoutDashboard, HandHeart, FileText, Share2, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export function Navigation() {
@@ -24,6 +24,58 @@ export function Navigation() {
           <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
+                <div className="hidden md:flex items-center space-x-2">
+                  <Link href="/dashboard">
+                    <Button 
+                      variant={location === "/dashboard" ? "default" : "ghost"} 
+                      size="sm"
+                      className={location === "/dashboard" ? "bg-army-green-600 hover:bg-army-green-700" : ""}
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/schemes">
+                    <Button 
+                      variant={location === "/schemes" ? "default" : "ghost"} 
+                      size="sm"
+                      className={location === "/schemes" ? "bg-army-green-600 hover:bg-army-green-700" : ""}
+                    >
+                      <HandHeart className="h-4 w-4 mr-2" />
+                      Schemes
+                    </Button>
+                  </Link>
+                  <Link href="/grievances">
+                    <Button 
+                      variant={location === "/grievances" ? "default" : "ghost"} 
+                      size="sm"
+                      className={location === "/grievances" ? "bg-army-green-600 hover:bg-army-green-700" : ""}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Grievances
+                    </Button>
+                  </Link>
+                  <Link href="/marketplace">
+                    <Button 
+                      variant={location === "/marketplace" ? "default" : "ghost"} 
+                      size="sm"
+                      className={location === "/marketplace" ? "bg-army-green-600 hover:bg-army-green-700" : ""}
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Marketplace
+                    </Button>
+                  </Link>
+                  <Link href="/community">
+                    <Button 
+                      variant={location === "/community" ? "default" : "ghost"} 
+                      size="sm"
+                      className={location === "/community" ? "bg-army-green-600 hover:bg-army-green-700" : ""}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Community
+                    </Button>
+                  </Link>
+                </div>
                 <span className="text-sm text-gray-600">
                   Welcome, <span className="font-medium">{user?.fullName}</span>
                 </span>
