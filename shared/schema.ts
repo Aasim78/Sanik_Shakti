@@ -4,11 +4,15 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  serviceNumber: text("service_number").notNull().unique(),
-  fullName: text("full_name").notNull(),
+  name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  serviceNumber: text("service_number").unique(),
   role: text("role").notNull(), // 'soldier', 'family', 'admin'
+  aadhaarNumber: text("aadhaar_number").unique(),
+  aadhaarVerified: boolean("aadhaar_verified").default(false),
+  lastVerificationDate: timestamp("last_verification_date"),
+  verificationMethod: text("verification_method"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -23,6 +27,21 @@ export const schemes = pgTable("schemes", {
   processingTime: text("processing_time").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  maxBeneficiaries: integer("max_beneficiaries"),
+  currentBeneficiaries: integer("current_beneficiaries").default(0),
+  documents: text("required_documents").array(),
+  applicationProcess: text("application_process").notNull(),
+  benefits: text("benefits").notNull(),
+  fundingSource: text("funding_source"),
+  contactPerson: text("contact_person"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  tags: text("tags").array(),
+  status: text("status").notNull().default("ACTIVE"), // 'ACTIVE', 'PAUSED', 'ENDED', 'UPCOMING'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
 });
 
 export const applications = pgTable("applications", {
@@ -60,6 +79,19 @@ export const sosAlerts = pgTable("sos_alerts", {
   acknowledgedBy: integer("acknowledged_by"),
 });
 
+export const aadhaarVerificationLogs = pgTable('aadhaar_verification_logs', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id),
+  aadhaarNumber: text('aadhaar_number'),
+  verificationType: text('verification_type'),
+  verificationStatus: text('verification_status'),
+  errorMessage: text('error_message'),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at').defaultNow(),
+  txnId: text('txn_id'),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -68,6 +100,9 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertSchemeSchema = createInsertSchema(schemes).omit({
   id: true,
   createdAt: true,
+  currentBeneficiaries: true,
+  lastUpdated: true,
+  updatedBy: true,
 });
 
 export const insertApplicationSchema = createInsertSchema(applications).omit({
@@ -93,6 +128,11 @@ export const insertSosAlertSchema = createInsertSchema(sosAlerts).omit({
   acknowledgedBy: true,
 });
 
+export const insertAadhaarVerificationLog = createInsertSchema(aadhaarVerificationLogs).omit({
+  id: true,
+  createdAt: true
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Scheme = typeof schemes.$inferSelect;
@@ -103,3 +143,28 @@ export type Grievance = typeof grievances.$inferSelect;
 export type InsertGrievance = z.infer<typeof insertGrievanceSchema>;
 export type SosAlert = typeof sosAlerts.$inferSelect;
 export type InsertSosAlert = z.infer<typeof insertSosAlertSchema>;
+export type AadhaarVerificationLog = typeof aadhaarVerificationLogs.$inferSelect;
+export type InsertAadhaarVerificationLog = z.infer<typeof insertAadhaarVerificationLog>;
+
+// Aadhaar Verification Types
+export interface AadhaarVerificationRequest {
+  aadhaarNumber: string;
+  biometricData?: string; // Base64 encoded biometric data
+  otp?: string;
+  verificationType: 'BIOMETRIC' | 'OTP';
+  txnId?: string; // Transaction ID for OTP and biometric verification
+}
+
+export interface AadhaarVerificationResponse {
+  success: boolean;
+  verified: boolean;
+  aadhaarHolder?: {
+    name: string;
+    dateOfBirth: string;
+    gender: string;
+    address: string;
+    photo: string; // Base64 encoded photo
+  };
+  error?: string;
+  txnId: string;
+}

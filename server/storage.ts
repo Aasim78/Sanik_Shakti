@@ -4,10 +4,49 @@ import {
   Application, InsertApplication,
   Grievance, InsertGrievance,
   SosAlert, InsertSosAlert,
-  users, schemes, applications, grievances, sosAlerts
+  AadhaarVerificationLog, InsertAadhaarVerificationLog,
+  users, schemes, applications, grievances, sosAlerts, aadhaarVerificationLogs
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, or, like, desc, sql, isNull } from "drizzle-orm";
+
+interface SchemeFilters {
+  category?: string;
+  status?: string;
+  search?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  isActive?: boolean;
+  tags?: string[];
+}
+
+interface SchemeUpdate {
+  title?: string;
+  description?: string;
+  category?: string;
+  amount?: number;
+  eligibility?: string;
+  deadline?: string;
+  processingTime?: string;
+  isActive?: boolean;
+  startDate?: Date;
+  endDate?: Date;
+  maxBeneficiaries?: number;
+  documents?: string[];
+  applicationProcess?: string;
+  benefits?: string;
+  fundingSource?: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  tags?: string[];
+  status?: string;
+}
+
+interface UpdateSosAlert {
+  acknowledgedAt?: Date;
+  acknowledgedBy?: number;
+}
 
 export interface IStorage {
   // User methods
@@ -15,11 +54,26 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByServiceNumber(serviceNumber: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserAadhaarStatus(userId: number, aadhaarNumber: string, verified: boolean): Promise<User>;
   
-  // Scheme methods
-  getSchemes(): Promise<Scheme[]>;
+  // Enhanced Scheme methods
+  getSchemes(filters?: SchemeFilters): Promise<Scheme[]>;
   getScheme(id: number): Promise<Scheme | undefined>;
   createScheme(scheme: InsertScheme): Promise<Scheme>;
+  updateScheme(id: number, update: SchemeUpdate, updatedBy: number): Promise<Scheme | undefined>;
+  deleteScheme(id: number): Promise<boolean>;
+  getSchemesByCategory(category: string): Promise<Scheme[]>;
+  getActiveSchemes(): Promise<Scheme[]>;
+  getUpcomingSchemes(): Promise<Scheme[]>;
+  searchSchemes(query: string): Promise<Scheme[]>;
+  getSchemeApplicationStats(schemeId: number): Promise<{
+    total: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+  }>;
+  incrementBeneficiaries(schemeId: number): Promise<void>;
+  decrementBeneficiaries(schemeId: number): Promise<void>;
   
   // Application methods
   getApplicationsByUser(userId: number): Promise<Application[]>;
@@ -35,6 +89,12 @@ export interface IStorage {
   // SOS Alert methods
   createSosAlert(alert: InsertSosAlert): Promise<SosAlert>;
   getSosAlerts(): Promise<SosAlert[]>;
+  updateSosAlert(id: number, update: UpdateSosAlert): Promise<SosAlert | undefined>;
+  getActiveSosAlerts(): Promise<SosAlert[]>;
+
+  // Aadhaar Verification methods
+  createAadhaarVerificationLog(log: InsertAadhaarVerificationLog): Promise<AadhaarVerificationLog>;
+  getAadhaarVerificationLogs(userId: number): Promise<AadhaarVerificationLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -59,19 +119,195 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Scheme methods
-  async getSchemes(): Promise<Scheme[]> {
-    return await db.select().from(schemes).where(eq(schemes.isActive, true));
+  async updateUserAadhaarStatus(userId: number, aadhaarNumber: string, verified: boolean): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        aadhaarNumber,
+        aadhaarVerified: verified,
+        lastVerificationDate: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
+  }
+
+  // Enhanced Scheme methods
+  async getSchemes(filters?: SchemeFilters): Promise<Scheme[]> {
+    let query = db.select().from(schemes);
+
+    if (filters) {
+      const conditions = [];
+
+      if (filters.category) {
+        conditions.push(eq(schemes.category, filters.category));
+      }
+
+      if (filters.status) {
+        conditions.push(eq(schemes.status, filters.status));
+      }
+
+      if (filters.isActive !== undefined) {
+        conditions.push(eq(schemes.isActive, filters.isActive));
+      }
+
+      if (filters.search) {
+        conditions.push(
+          or(
+            like(schemes.title, `%${filters.search}%`),
+            like(schemes.description, `%${filters.search}%`)
+          )
+        );
+      }
+
+      if (filters.minAmount) {
+        conditions.push(sql`${schemes.amount} >= ${filters.minAmount}`);
+      }
+
+      if (filters.maxAmount) {
+        conditions.push(sql`${schemes.amount} <= ${filters.maxAmount}`);
+      }
+
+      if (filters.tags?.length) {
+        conditions.push(sql`${schemes.tags} && ${filters.tags}`);
+      }
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
+    }
+
+    return await query.orderBy(desc(schemes.createdAt));
   }
 
   async getScheme(id: number): Promise<Scheme | undefined> {
     const [scheme] = await db.select().from(schemes).where(eq(schemes.id, id));
-    return scheme || undefined;
+    return scheme;
   }
 
   async createScheme(insertScheme: InsertScheme): Promise<Scheme> {
     const [scheme] = await db.insert(schemes).values(insertScheme).returning();
     return scheme;
+  }
+
+  async updateScheme(id: number, update: SchemeUpdate, updatedBy: number): Promise<Scheme | undefined> {
+    const [scheme] = await db
+      .update(schemes)
+      .set({
+        ...update,
+        lastUpdated: new Date(),
+        updatedBy,
+      })
+      .where(eq(schemes.id, id))
+      .returning();
+    return scheme;
+  }
+
+  async deleteScheme(id: number): Promise<boolean> {
+    const [scheme] = await db
+      .update(schemes)
+      .set({ isActive: false })
+      .where(eq(schemes.id, id))
+      .returning();
+    return !!scheme;
+  }
+
+  async getSchemesByCategory(category: string): Promise<Scheme[]> {
+    return await db
+      .select()
+      .from(schemes)
+      .where(and(eq(schemes.category, category), eq(schemes.isActive, true)))
+      .orderBy(desc(schemes.createdAt));
+  }
+
+  async getActiveSchemes(): Promise<Scheme[]> {
+    return await db
+      .select()
+      .from(schemes)
+      .where(
+        and(
+          eq(schemes.isActive, true),
+          eq(schemes.status, "ACTIVE"),
+          or(
+            isNull(schemes.endDate),
+            sql`${schemes.endDate} > NOW()`
+          )
+        )
+      )
+      .orderBy(desc(schemes.createdAt));
+  }
+
+  async getUpcomingSchemes(): Promise<Scheme[]> {
+    return await db
+      .select()
+      .from(schemes)
+      .where(
+        and(
+          eq(schemes.isActive, true),
+          eq(schemes.status, "UPCOMING"),
+          sql`${schemes.startDate} > NOW()`
+        )
+      )
+      .orderBy(schemes.startDate);
+  }
+
+  async searchSchemes(query: string): Promise<Scheme[]> {
+    return await db
+      .select()
+      .from(schemes)
+      .where(
+        and(
+          eq(schemes.isActive, true),
+          or(
+            like(schemes.title, `%${query}%`),
+            like(schemes.description, `%${query}%`),
+            like(schemes.benefits, `%${query}%`),
+            sql`${schemes.tags} @> ARRAY[${query}]`
+          )
+        )
+      )
+      .orderBy(desc(schemes.createdAt));
+  }
+
+  async getSchemeApplicationStats(schemeId: number): Promise<{
+    total: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+  }> {
+    const [result] = await db
+      .select({
+        total: sql<number>`COUNT(*)::int`,
+        approved: sql<number>`SUM(CASE WHEN ${applications.status} = 'approved' THEN 1 ELSE 0 END)::int`,
+        pending: sql<number>`SUM(CASE WHEN ${applications.status} = 'pending' THEN 1 ELSE 0 END)::int`,
+        rejected: sql<number>`SUM(CASE WHEN ${applications.status} = 'rejected' THEN 1 ELSE 0 END)::int`,
+      })
+      .from(applications)
+      .where(eq(applications.schemeId, schemeId));
+
+    return {
+      total: result?.total || 0,
+      approved: result?.approved || 0,
+      pending: result?.pending || 0,
+      rejected: result?.rejected || 0,
+    };
+  }
+
+  async incrementBeneficiaries(schemeId: number): Promise<void> {
+    await db
+      .update(schemes)
+      .set({
+        currentBeneficiaries: sql`${schemes.currentBeneficiaries} + 1`,
+      })
+      .where(eq(schemes.id, schemeId));
+  }
+
+  async decrementBeneficiaries(schemeId: number): Promise<void> {
+    await db
+      .update(schemes)
+      .set({
+        currentBeneficiaries: sql`${schemes.currentBeneficiaries} - 1`,
+      })
+      .where(eq(schemes.id, schemeId));
   }
 
   // Application methods
@@ -134,6 +370,38 @@ export class DatabaseStorage implements IStorage {
 
   async getSosAlerts(): Promise<SosAlert[]> {
     return await db.select().from(sosAlerts);
+  }
+
+  async updateSosAlert(id: number, update: UpdateSosAlert): Promise<SosAlert | undefined> {
+    const [alert] = await db
+      .update(sosAlerts)
+      .set(update)
+      .where(eq(sosAlerts.id, id))
+      .returning();
+    return alert;
+  }
+
+  async getActiveSosAlerts(): Promise<SosAlert[]> {
+    return await db
+      .select()
+      .from(sosAlerts)
+      .where(isNull(sosAlerts.acknowledgedAt));
+  }
+
+  // Aadhaar Verification methods
+  async createAadhaarVerificationLog(log: InsertAadhaarVerificationLog): Promise<AadhaarVerificationLog> {
+    const [newLog] = await db
+      .insert(aadhaarVerificationLogs)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  async getAadhaarVerificationLogs(userId: number): Promise<AadhaarVerificationLog[]> {
+    return db
+      .select()
+      .from(aadhaarVerificationLogs)
+      .where(eq(aadhaarVerificationLogs.userId, userId));
   }
 }
 

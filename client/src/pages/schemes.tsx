@@ -19,6 +19,10 @@ export default function Schemes() {
 
   const { data: schemes, isLoading } = useQuery({
     queryKey: ["/api/schemes"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/schemes");
+      return response.json();
+    },
   });
 
   const applyMutation = useMutation({
@@ -45,7 +49,7 @@ export default function Schemes() {
 
   const filteredSchemes = schemes?.filter((scheme: any) => {
     const categoryMatch = !categoryFilter || categoryFilter === "all" || scheme.category === categoryFilter;
-    const eligibilityMatch = !eligibilityFilter || scheme.eligibility.toLowerCase().includes(eligibilityFilter.toLowerCase());
+    const eligibilityMatch = !eligibilityFilter || eligibilityFilter === "all" || scheme.eligibility.toLowerCase().includes(eligibilityFilter.toLowerCase());
     return categoryMatch && eligibilityMatch;
   }) || [];
 
@@ -102,7 +106,7 @@ export default function Schemes() {
                     <SelectValue placeholder="All Personnel" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Personnel</SelectItem>
+                    <SelectItem value="all">All Personnel</SelectItem>
                     <SelectItem value="active">Active Service</SelectItem>
                     <SelectItem value="veteran">Veterans</SelectItem>
                     <SelectItem value="family">Family Members</SelectItem>
@@ -116,7 +120,7 @@ export default function Schemes() {
                     <SelectValue placeholder="Any Amount" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any Amount</SelectItem>
+                    <SelectItem value="all">Any Amount</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -160,7 +164,14 @@ export default function Schemes() {
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{scheme.title}</h3>
                   <p className="text-gray-600 text-sm mb-4">{scheme.description}</p>
-                  
+                  {/* Defensive check for tags */}
+                  {Array.isArray(scheme.tags) && scheme.tags.length > 0 && (
+                    <div className="flex gap-1 mb-2">
+                      {scheme.tags.map((tag: string) => (
+                        <Badge key={tag} variant="outline">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-sm text-gray-600">
                       <Users className="h-4 w-4 text-army-green-500 mr-2" />
@@ -175,7 +186,6 @@ export default function Schemes() {
                       <span>Processing: {scheme.processingTime}</span>
                     </div>
                   </div>
-                  
                   <Button 
                     className="w-full bg-army-green-600 hover:bg-army-green-700"
                     onClick={() => applyMutation.mutate(scheme.id)}

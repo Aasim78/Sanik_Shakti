@@ -148,7 +148,7 @@ export default function Marketplace() {
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="books">Books</SelectItem>
                   <SelectItem value="equipment">Equipment</SelectItem>
                   <SelectItem value="housing">Housing</SelectItem>

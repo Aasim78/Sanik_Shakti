@@ -26,26 +26,51 @@ import {
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 
+interface DashboardStats {
+  activeApplications: number;
+  approved: number;
+  pending: number;
+  grievances: number;
+}
+
+interface Application {
+  id: number;
+  status: string;
+  // ...other fields
+}
+
+interface Grievance {
+  id: number;
+  status: string;
+  // ...other fields
+}
+
+interface SosAlert {
+  id: number;
+  acknowledgedAt?: string | null;
+  // ...other fields
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [showSOSModal, setShowSOSModal] = useState(false);
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats | undefined>({
     queryKey: ["/api/dashboard/stats"],
     enabled: !!user,
   });
 
-  const { data: applications, isLoading: applicationsLoading } = useQuery({
+  const { data: applications, isLoading: applicationsLoading } = useQuery<Application[] | undefined>({
     queryKey: ["/api/applications"],
     enabled: !!user,
   });
 
-  const { data: grievances } = useQuery({
+  const { data: grievances } = useQuery<Grievance[] | undefined>({
     queryKey: ["/api/grievances"],
     enabled: !!user && user.role === 'admin',
   });
 
-  const { data: sosAlerts } = useQuery({
+  const { data: sosAlerts } = useQuery<SosAlert[] | undefined>({
     queryKey: ["/api/sos"],
     enabled: !!user && user.role === 'admin',
   });
@@ -68,8 +93,8 @@ export default function Dashboard() {
         { id: 2, type: 'success', message: 'Emergency contact details updated successfully', time: '3 days ago' }
       );
     } else if (user.role === 'admin') {
-      const pendingCount = grievances?.filter((g: any) => g.status !== 'resolved').length || 0;
-      const sosCount = sosAlerts?.filter((s: any) => !s.acknowledgedAt).length || 0;
+      const pendingCount = Array.isArray(grievances) ? grievances.filter((g: any) => g.status !== 'resolved').length : 0;
+      const sosCount = Array.isArray(sosAlerts) ? sosAlerts.filter((s: any) => !s.acknowledgedAt).length : 0;
       if (pendingCount > 0) {
         notifications.push({ id: 1, type: 'warning', message: `${pendingCount} pending grievances require attention`, time: 'now' });
       }
@@ -459,7 +484,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600">Welcome back, <span className="font-medium">{user.fullName}</span></p>
+              <p className="text-gray-600">Welcome back, <span className="font-medium">{user.name}</span></p>
             </div>
             <Badge variant="secondary" className="bg-army-green-100 text-army-green-800">
               <Shield className="h-3 w-3 mr-1" />

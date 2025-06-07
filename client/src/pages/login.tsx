@@ -41,7 +41,7 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password, data.role);
+      await login({ email: data.email, password: data.password });
       toast({
         title: "Login Successful",
         description: "Welcome back to Sainik Saathi",

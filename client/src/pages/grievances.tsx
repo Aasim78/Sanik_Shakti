@@ -25,6 +25,12 @@ const grievanceSchema = z.object({
 
 type GrievanceFormData = z.infer<typeof grievanceSchema>;
 
+interface Grievance {
+  id: number;
+  status: string;
+  // ...other fields
+}
+
 export default function Grievances() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -39,7 +45,7 @@ export default function Grievances() {
     },
   });
 
-  const { data: grievances, isLoading } = useQuery({
+  const { data: grievances, isLoading } = useQuery<Grievance[] | undefined>({
     queryKey: ["/api/grievances"],
   });
 
@@ -259,7 +265,7 @@ export default function Grievances() {
                       </div>
                     ))}
                   </div>
-                ) : grievances && grievances.length > 0 ? (
+                ) : grievances && Array.isArray(grievances) && grievances.length > 0 ? (
                   <div className="space-y-4">
                     {grievances.slice(0, 3).map((grievance: any) => (
                       <div key={grievance.id} className="border border-gray-200 rounded-lg p-4">

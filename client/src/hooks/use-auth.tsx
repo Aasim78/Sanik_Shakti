@@ -1,82 +1,84 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { authService, User } from "@/lib/auth";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useContext, useState, useEffect } from "react";
+import { apiRequest } from "@/lib/queryClient";
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  serviceNumber: string;
+  role: string;
+  aadhaarVerified: boolean;
+}
+
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  serviceNumber: string;
+}
+
+interface LoginData {
+  email: string;
+  password: string;
+}
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: string) => Promise<void>;
-  register: (userData: {
-    serviceNumber: string;
-    fullName: string;
-    email: string;
-    password: string;
-    role: string;
-  }) => Promise<void>;
-  logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  register: (data: RegisterData) => Promise<void>;
+  login: (data: LoginData) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const queryClient = useQueryClient();
-
-  const { data: currentUser, isLoading } = useQuery({
-    queryKey: ["/api/auth/me"],
-    queryFn: async () => {
-      const token = authService.getToken();
-      if (!token) return null;
-      
-      try {
-        return await authService.getCurrentUser();
-      } catch (error) {
-        authService.logout();
-        return null;
-      }
-    },
-    enabled: authService.isAuthenticated(),
-    retry: false,
-  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setUser(currentUser || null);
-  }, [currentUser]);
+    checkAuth();
+  }, []);
 
-  const login = async (email: string, password: string, role: string) => {
-    const response = await authService.login(email, password, role);
-    setUser(response.user);
-    queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  const checkAuth = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/auth/me");
+      const data = await response.json();
+      setUser(data);
+    } catch (error) {
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const register = async (userData: {
-    serviceNumber: string;
-    fullName: string;
-    email: string;
-    password: string;
-    role: string;
-  }) => {
-    const response = await authService.register(userData);
-    setUser(response.user);
-    queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  const register = async (data: RegisterData) => {
+    const response = await apiRequest("POST", "/api/auth/register", data);
+    const userData = await response.json();
+    setUser(userData);
   };
 
-  const logout = () => {
-    authService.logout();
+  const login = async (data: LoginData) => {
+    const response = await apiRequest("POST", "/api/auth/login", data);
+    const userData = await response.json();
+    setUser(userData);
+  };
+
+  const logout = async () => {
+    await apiRequest("POST", "/api/auth/logout");
     setUser(null);
-    queryClient.clear();
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        login,
-        register,
-        logout,
         isAuthenticated: !!user,
         isLoading,
+        register,
+        login,
+        logout,
       }}
     >
       {children}

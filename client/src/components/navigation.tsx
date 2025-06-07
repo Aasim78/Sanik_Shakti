@@ -77,7 +77,7 @@ export function Navigation() {
                   </Link>
                 </div>
                 <span className="text-sm text-gray-600">
-                  Welcome, <span className="font-medium">{user?.fullName}</span>
+                  Welcome, <span className="font-medium">{user?.name}</span>
                 </span>
                 <Badge variant="secondary" className="bg-army-green-100 text-army-green-800">
                   <Shield className="h-3 w-3 mr-1" />
