@@ -47,18 +47,22 @@ export default function AdminAddScheme() {
   });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    const { name, value, type } = e.target;
-    if (type === "checkbox" && e.target instanceof HTMLInputElement) {
+    const target = e.target;
+
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+      const { name, checked } = target;
       setForm((prev) => ({
         ...prev,
-        [name]: e.target.checked,
+        [name]: checked,
       }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      return;
     }
+
+    const { name, value } = target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   }
 
   function handleSubmit(e: React.FormEvent) {

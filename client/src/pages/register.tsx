@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { AadhaarVerification } from "@/components/aadhaar-verification";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -14,12 +14,12 @@ export default function Register() {
   const [, setLocation] = useLocation();
   const { register } = useAuth();
   const { toast } = useToast();
-  const [step, setStep] = useState<"DETAILS" | "AADHAAR">("DETAILS");
   const [formData, setFormData] = useState({
     name: "",
-      email: "",
-      password: "",
+    email: "",
+    password: "",
     serviceNumber: "",
+    role: "soldier",
   });
 
   const registerMutation = useMutation({
@@ -27,7 +27,11 @@ export default function Register() {
       return register(formData);
     },
     onSuccess: () => {
-      setStep("AADHAAR");
+      toast({
+        title: "Registration Successful",
+        description: "Welcome to Sainik Saathi",
+      });
+      setLocation("/");
     },
     onError: (error: any) => {
       toast({
@@ -42,10 +46,6 @@ export default function Register() {
     e.preventDefault();
     registerMutation.mutate();
   };
-
-  if (step === "AADHAAR") {
-    return <AadhaarVerification />;
-  }
 
   return (
     <div className="container max-w-lg mx-auto py-10">
@@ -93,6 +93,21 @@ export default function Register() {
                 required
               />
               </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="soldier">Soldier</SelectItem>
+                  <SelectItem value="family">Family Member</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
               <Button 
                 type="submit" 
               className="w-full"
@@ -101,7 +116,7 @@ export default function Register() {
               {registerMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Continue to Verification
+              Create Account
               </Button>
             </form>
           </CardContent>

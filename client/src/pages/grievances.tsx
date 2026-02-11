@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
 
 const grievanceSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -27,13 +28,23 @@ type GrievanceFormData = z.infer<typeof grievanceSchema>;
 
 interface Grievance {
   id: number;
+  userId: number;
+  category: string;
+  subject: string;
+  description: string;
+  priority: string;
   status: string;
-  // ...other fields
+  filedAt: string;
+  resolvedAt: string | null;
+  resolvedBy: number | null;
+  resolution: string | null;
 }
 
 export default function Grievances() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [adminEdits, setAdminEdits] = useState<Record<number, { status: string; resolution: string }>>({});
 
   const form = useForm<GrievanceFormData>({
     resolver: zodResolver(grievanceSchema),
@@ -76,6 +87,31 @@ export default function Grievances() {
     submitGrievanceMutation.mutate(data);
   };
 
+  const updateGrievanceMutation = useMutation({
+    mutationFn: async (payload: { id: number; status: string; resolution?: string }) => {
+      const response = await apiRequest("PATCH", `/api/grievances/${payload.id}`, {
+        status: payload.status,
+        resolution: payload.resolution,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Grievance Updated",
+        description: "Status/resolution saved successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/grievances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update grievance",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'filed': return 'bg-blue-100 text-blue-800';
@@ -112,14 +148,110 @@ export default function Grievances() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Grievance Form */}
+          {/* Main Panel */}
           <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Submit New Grievance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {user?.role === "admin" ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Grievance Review (Admin)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(6)].map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </div>
+                  ) : (grievances?.length || 0) > 0 ? (
+                    <div className="space-y-4">
+                      {(grievances || []).map((g: Grievance) => {
+                        const edit = adminEdits[g.id] || {
+                          status: g.status,
+                          resolution: g.resolution || "",
+                        };
+
+                        return (
+                          <Card key={g.id}>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-semibold text-gray-900 truncate">{g.subject}</h3>
+                                    <Badge className={getStatusColor(g.status)}>{getStatusText(g.status)}</Badge>
+                                    <Badge variant="outline">{g.priority}</Badge>
+                                  </div>
+                                  <p className="text-sm text-gray-600 mt-1">User ID: {g.userId} • Category: {g.category}</p>
+                                  <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{g.description}</p>
+                                  <p className="text-xs text-gray-500 mt-2">Filed: {new Date(g.filedAt).toLocaleString()}</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <Label>Status</Label>
+                                  <Select
+                                    value={edit.status}
+                                    onValueChange={(value) =>
+                                      setAdminEdits((prev) => ({
+                                        ...prev,
+                                        [g.id]: { ...edit, status: value },
+                                      }))
+                                    }
+                                  >
+                                    <SelectTrigger className="mt-1">
+                                      <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="filed">Filed</SelectItem>
+                                      <SelectItem value="in_progress">In Progress</SelectItem>
+                                      <SelectItem value="resolved">Resolved</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Resolution</Label>
+                                  <Textarea
+                                    className="mt-1"
+                                    rows={3}
+                                    value={edit.resolution}
+                                    onChange={(e) =>
+                                      setAdminEdits((prev) => ({
+                                        ...prev,
+                                        [g.id]: { ...edit, resolution: e.target.value },
+                                      }))
+                                    }
+                                    placeholder="Add resolution notes (optional)"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end">
+                                <Button
+                                  className="bg-army-green-600 hover:bg-army-green-700"
+                                  onClick={() => updateGrievanceMutation.mutate({ id: g.id, status: edit.status, resolution: edit.resolution })}
+                                  disabled={updateGrievanceMutation.isPending}
+                                >
+                                  {updateGrievanceMutation.isPending ? "Saving..." : "Save Update"}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-500">No grievances found</p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Submit New Grievance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div>
                     <Label htmlFor="category">Category</Label>
                     <Select value={form.watch("category")} onValueChange={(value) => form.setValue("category", value)}>
@@ -208,9 +340,10 @@ export default function Grievances() {
                   >
                     {submitGrievanceMutation.isPending ? "Submitting..." : "Submit Grievance"}
                   </Button>
-                </form>
-              </CardContent>
-            </Card>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}

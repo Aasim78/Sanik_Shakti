@@ -1,19 +1,22 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { AadhaarService } from "./services/aadhaar";
 import { 
   insertUserSchema, 
   insertApplicationSchema, 
   insertGrievanceSchema, 
   insertSosAlertSchema,
-  AadhaarVerificationRequest 
+  AadhaarVerificationRequest,
+  users,
+  schemes,
 } from "@shared/schema";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { and, eq, sql } from "drizzle-orm";
 import { apiLimiter, authLimiter, aadhaarLimiter, sosLimiter } from "./middleware/rate-limit";
 import { Server as SocketServer } from "socket.io";
-
 const JWT_SECRET = process.env.JWT_SECRET || "sainik-saathi-secret-key";
 const aadhaarService = new AadhaarService();
 
@@ -51,7 +54,6 @@ const authenticateToken = async (req: AuthenticatedRequest, res: Response, next:
 export async function registerRoutes(app: Express): Promise<Server> {
   // Apply rate limiters
   app.use("/api/", apiLimiter);
-  app.use("/api/auth/", authLimiter);
   app.use("/api/aadhaar/", aadhaarLimiter);
   app.use("/api/sos/", sosLimiter);
 
@@ -88,9 +90,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     try {
-      const { name, email, password, serviceNumber } = req.body;
+      const { name, email, password, serviceNumber, role } = req.body as {
+        name: string;
+        email: string;
+        password: string;
+        serviceNumber: string;
+        role?: string;
+      };
+
+      const requestedRole = (role ?? "soldier").toLowerCase();
+      const allowedRoles = new Set(["soldier", "family", "admin"]);
+      if (!allowedRoles.has(requestedRole)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+
+      if (requestedRole === "admin") {
+        if (process.env.NODE_ENV === "production") {
+          return res.status(403).json({ message: "Admin registration is disabled" });
+        }
+
+        const [{ count: adminCount }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(users)
+          .where(eq(users.role, "admin"));
+
+        if (adminCount > 0) {
+          return res.status(403).json({ message: "An admin account already exists" });
+        }
+      }
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -112,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         password: hashedPassword,
         serviceNumber,
-        role: "soldier", // Default role
+        role: requestedRole, // Default is soldier; first admin allowed in dev only
       });
 
       // Generate JWT token
@@ -134,17 +163,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { password: _, ...userData } = user;
       res.status(201).json(userData);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      const details = process.env.NODE_ENV !== "production"
+        ? (error?.cause?.message ?? error?.cause)
+        : undefined;
+      res.status(400).json({ message: error.message, details });
     }
   });
 
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
-      const { email, password } = req.body;
+      const { email: identifier, password, role, rememberMe } = req.body;
 
       // Find user
-      const user = await storage.getUserByEmail(email);
+      let user = await storage.getUserByEmail(identifier);
       if (!user) {
+        user = await storage.getUserByServiceNumber(identifier);
+      }
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (role && user.role !== role) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
@@ -158,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = jwt.sign(
         { id: user.id, role: user.role },
         JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: rememberMe ? "7d" : "24h" }
       );
 
       // Set token in cookie
@@ -166,14 +205,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         httpOnly: true,
         secure: false, // Always false in dev for localhost
         sameSite: "lax", // Always lax in dev for localhost
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: (rememberMe ? 7 : 1) * 24 * 60 * 60 * 1000,
       });
 
       // Return user data (excluding password)
       const { password: _, ...userData } = user;
       res.json(userData);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      const details = process.env.NODE_ENV !== "production"
+        ? (error?.cause?.message ?? error?.cause)
+        : undefined;
+      res.status(400).json({ message: error.message, details });
     }
   });
 
@@ -200,13 +242,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced Scheme routes
   app.get("/api/schemes", authenticateToken, async (req: Request, res: Response) => {
     try {
+      const isActiveParam = req.query.isActive as string | undefined;
       const filters = {
         category: req.query.category as string,
         status: req.query.status as string,
         search: req.query.search as string,
         minAmount: req.query.minAmount ? parseInt(req.query.minAmount as string) : undefined,
         maxAmount: req.query.maxAmount ? parseInt(req.query.maxAmount as string) : undefined,
-        isActive: req.query.isActive === "true",
+        isActive: isActiveParam !== undefined ? isActiveParam === "true" : undefined,
         tags: req.query.tags ? (req.query.tags as string).split(",") : undefined,
       };
 
@@ -348,8 +391,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: list all applications (with scheme + user details)
+  app.get("/api/admin/applications", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const applications = await storage.getAllApplications();
+      const applicationsWithDetails = await Promise.all(
+        applications.map(async (app) => {
+          const [scheme, applicant] = await Promise.all([
+            storage.getScheme(app.schemeId),
+            storage.getUser(app.userId),
+          ]);
+
+          const safeApplicant = applicant
+            ? {
+                id: applicant.id,
+                name: applicant.name,
+                email: applicant.email,
+                serviceNumber: applicant.serviceNumber,
+                role: applicant.role,
+              }
+            : undefined;
+
+          return { ...app, scheme, user: safeApplicant };
+        })
+      );
+
+      res.json(applicationsWithDetails);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get admin applications", error });
+    }
+  });
+
   app.post("/api/applications", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (req.user!.role === "admin") {
+        return res.status(403).json({ message: "Admins cannot apply for schemes" });
+      }
+
       const applicationData = insertApplicationSchema.parse({
         ...req.body,
         userId: req.user!.id,
@@ -365,6 +447,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(application);
     } catch (error) {
       res.status(400).json({ message: "Failed to create application", error });
+    }
+  });
+
+  // Admin: approve/reject an application
+  app.patch("/api/applications/:id", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const id = parseInt(req.params.id);
+      const { status, comments } = req.body as { status?: string; comments?: string };
+
+      if (!status || !["pending", "approved", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updated = await storage.updateApplicationStatus(id, status, req.user!.id, comments);
+      if (!updated) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update application", error });
+    }
+  });
+
+  // Admin: high-level stats for dashboard cards
+  app.get("/api/admin/stats", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const [{ totalUsers }] = await db
+        .select({ totalUsers: sql<number>`count(*)::int` })
+        .from(users);
+
+      const [{ schemesApproved }] = await db
+        .select({ schemesApproved: sql<number>`count(*)::int` })
+        .from(schemes)
+        .where(and(eq(schemes.isActive, true), eq(schemes.status, "ACTIVE")));
+
+      res.json({
+        totalUsers: totalUsers ?? 0,
+        schemesApproved: schemesApproved ?? 0,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get admin stats", error });
     }
   });
 

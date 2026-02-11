@@ -51,6 +51,11 @@ interface SosAlert {
   // ...other fields
 }
 
+interface AdminStats {
+  totalUsers: number;
+  schemesApproved: number;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [showSOSModal, setShowSOSModal] = useState(false);
@@ -73,6 +78,11 @@ export default function Dashboard() {
   const { data: sosAlerts } = useQuery<SosAlert[] | undefined>({
     queryKey: ["/api/sos"],
     enabled: !!user && user.role === 'admin',
+  });
+
+  const { data: adminStats } = useQuery<AdminStats | undefined>({
+    queryKey: ["/api/admin/stats"],
+    enabled: !!user && user.role === "admin",
   });
 
   if (!user) {
@@ -370,8 +380,10 @@ export default function Dashboard() {
                   </div>
                   <UserCheck className="h-8 w-8 text-indigo-200" />
                 </div>
-                <Button className="mt-4 bg-white text-indigo-600 hover:bg-gray-100">
-                  Review ({applications?.filter((a: any) => a.status === 'pending').length || 0})
+                <Button asChild className="mt-4 bg-white text-indigo-600 hover:bg-gray-100">
+                  <Link href="/admin#applications">
+                    Review ({applications?.filter((a: any) => a.status === 'pending').length || 0})
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -419,7 +431,7 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4">
                     <h4 className="text-sm font-medium text-gray-500">Total Users</h4>
-                    <p className="text-2xl font-bold text-gray-900">247</p>
+                    <p className="text-2xl font-bold text-gray-900">{adminStats?.totalUsers ?? 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -433,7 +445,7 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4">
                     <h4 className="text-sm font-medium text-gray-500">Schemes Approved</h4>
-                    <p className="text-2xl font-bold text-gray-900">89</p>
+                    <p className="text-2xl font-bold text-gray-900">{adminStats?.schemesApproved ?? 0}</p>
                   </div>
                 </div>
               </CardContent>

@@ -28,7 +28,7 @@ export default function Home() {
                 <Link href="/login">
                   <Button 
                     variant="outline" 
-                    className="border-2 border-white text-white hover:bg-white hover:text-green-600 font-semibold py-3 px-8"
+                    className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-green-600 font-semibold py-3 px-8"
                   >
                     <LogIn className="h-4 w-4 mr-2" />
                     Login

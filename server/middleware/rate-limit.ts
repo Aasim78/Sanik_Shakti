@@ -14,6 +14,7 @@ export const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // Limit each IP to 5 failed attempts per hour
   message: 'Too many failed attempts, please try again later.',
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
 });

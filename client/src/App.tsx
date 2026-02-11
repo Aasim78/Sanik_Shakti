@@ -14,6 +14,7 @@ import Grievances from "@/pages/grievances";
 import Marketplace from "@/pages/marketplace";
 import Community from "@/pages/community";
 import NotFound from "@/pages/not-found";
+import AdminDashboard from "@/pages/admin/dashboard";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -29,17 +30,35 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-  
-  if (isAuthenticated) {
+
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+
+  if (user?.role !== "admin") {
     return <Redirect to="/dashboard" />;
   }
-  
+
+  return <>{children}</>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (isAuthenticated) {
+    return <Redirect to={user?.role === "admin" ? "/admin" : "/dashboard"} />;
+  }
+
   return <>{children}</>;
 }
 
@@ -49,6 +68,11 @@ function Router() {
       <Navigation />
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/admin">
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        </Route>
         <Route path="/login">
           <PublicRoute>
             <Login />

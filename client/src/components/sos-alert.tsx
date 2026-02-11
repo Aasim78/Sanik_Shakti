@@ -23,7 +23,8 @@ export function SosAlert() {
 
   useEffect(() => {
     // Connect to Socket.IO server
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001");
+    const socketUrl = (import.meta.env.VITE_SOCKET_URL as string | undefined) || "http://localhost:3001";
+    const socket = io(socketUrl);
     setSocket(socket);
 
     // Listen for acknowledgment

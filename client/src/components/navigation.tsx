@@ -25,6 +25,18 @@ export function Navigation() {
             {isAuthenticated ? (
               <>
                 <div className="hidden md:flex items-center space-x-2">
+                  {user?.role === "admin" && (
+                    <Link href="/admin">
+                      <Button
+                        variant={location === "/admin" ? "default" : "ghost"}
+                        size="sm"
+                        className={location === "/admin" ? "bg-army-green-600 hover:bg-army-green-700" : ""}
+                      >
+                        <Shield className="h-4 w-4 mr-2" />
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <Link href="/dashboard">
                     <Button 
                       variant={location === "/dashboard" ? "default" : "ghost"} 
@@ -104,9 +116,9 @@ export function Navigation() {
                 </Link>
                 <Link href="/login">
                   <Button 
-                    variant="ghost" 
+                    variant="default" 
                     size="sm"
-                    className="text-army-green-600 hover:text-army-green-700 hover:bg-army-green-50"
+                    className="bg-army-green-600 hover:bg-army-green-700 text-white hover:text-white"
                   >
                     Login
                   </Button>

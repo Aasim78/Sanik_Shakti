@@ -10,12 +10,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Schemes() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [eligibilityFilter, setEligibilityFilter] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: schemes, isLoading } = useQuery({
     queryKey: ["/api/schemes"],
@@ -70,7 +72,11 @@ export default function Schemes() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Welfare Schemes</h1>
-            <p className="text-gray-600 mt-2">Browse and apply for available welfare schemes</p>
+            <p className="text-gray-600 mt-2">
+              {user?.role === "admin"
+                ? "Browse schemes and manage them from the Admin Dashboard"
+                : "Browse and apply for available welfare schemes"}
+            </p>
           </div>
           <Link href="/dashboard">
             <Button className="bg-army-green-600 hover:bg-army-green-700">
@@ -186,13 +192,22 @@ export default function Schemes() {
                       <span>Processing: {scheme.processingTime}</span>
                     </div>
                   </div>
-                  <Button 
-                    className="w-full bg-army-green-600 hover:bg-army-green-700"
-                    onClick={() => applyMutation.mutate(scheme.id)}
-                    disabled={applyMutation.isPending}
-                  >
-                    {applyMutation.isPending ? "Applying..." : "Apply Now"}
-                  </Button>
+                  {user?.role === "admin" ? (
+                    <Button
+                      asChild
+                      className="w-full bg-army-green-600 hover:bg-army-green-700"
+                    >
+                      <Link href="/admin">Manage Schemes</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full bg-army-green-600 hover:bg-army-green-700"
+                      onClick={() => applyMutation.mutate(scheme.id)}
+                      disabled={applyMutation.isPending}
+                    >
+                      {applyMutation.isPending ? "Applying..." : "Apply Now"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

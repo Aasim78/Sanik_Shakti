@@ -41,12 +41,17 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await login({ email: data.email, password: data.password });
+      await login({
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        rememberMe: data.rememberMe,
+      });
       toast({
         title: "Login Successful",
         description: "Welcome back to Sainik Saathi",
       });
-      setLocation("/dashboard");
+      setLocation(data.role === "admin" ? "/admin" : "/dashboard");
     } catch (error: any) {
       toast({
         title: "Login Failed",

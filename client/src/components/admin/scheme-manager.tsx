@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -59,15 +60,48 @@ export function SchemeManager() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [filters, setFilters] = useState<SchemeFilters>({});
+  const [tab, setTab] = useState<"active" | "upcoming" | "ended" | "all">("active");
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  const effectiveFilters = useMemo(() => {
+    const status =
+      tab === "active"
+        ? "ACTIVE"
+        : tab === "upcoming"
+          ? "UPCOMING"
+          : tab === "ended"
+            ? "ENDED"
+            : undefined;
+
+    return {
+      ...filters,
+      status,
+    } satisfies SchemeFilters;
+  }, [filters, tab]);
+
+  const schemesUrl = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (effectiveFilters.category) params.set("category", effectiveFilters.category);
+    if (effectiveFilters.status) params.set("status", effectiveFilters.status);
+    if (effectiveFilters.search) params.set("search", effectiveFilters.search);
+    if (effectiveFilters.minAmount !== undefined) params.set("minAmount", String(effectiveFilters.minAmount));
+    if (effectiveFilters.maxAmount !== undefined) params.set("maxAmount", String(effectiveFilters.maxAmount));
+    if (effectiveFilters.isActive !== undefined) params.set("isActive", String(effectiveFilters.isActive));
+    if (effectiveFilters.tags?.length) params.set("tags", effectiveFilters.tags.join(","));
+
+    const qs = params.toString();
+    return qs ? `/api/schemes?${qs}` : "/api/schemes";
+  }, [effectiveFilters]);
+
   const schemesQuery = useQuery({
-    queryKey: ["schemes", filters],
+    queryKey: ["schemes", effectiveFilters],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/schemes", { params: filters });
+      const response = await apiRequest("GET", schemesUrl);
       return response.json() as Promise<Scheme[]>;
     },
+    enabled: user?.role === "admin",
   });
 
   const deleteSchemeMutation = useMutation({
@@ -119,7 +153,7 @@ export function SchemeManager() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="active" className="space-y-4">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
           <TabsList>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
@@ -161,6 +195,21 @@ export function SchemeManager() {
 
           <ScrollArea className="h-[600px]">
             <div className="space-y-4">
+              {schemesQuery.isError && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Failed to load schemes. Try Refresh, or re-login if your session expired.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {schemesQuery.isLoading && (
+                <div className="flex items-center justify-center py-10 text-gray-500">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Loading schemes...
+                </div>
+              )}
+
               {schemesQuery.data?.map((scheme) => (
                 <Card key={scheme.id} className="p-4">
                   <div className="flex items-start justify-between">
@@ -211,7 +260,7 @@ export function SchemeManager() {
                 </Card>
               ))}
 
-              {schemesQuery.data?.length === 0 && (
+              {!schemesQuery.isLoading && schemesQuery.data?.length === 0 && (
                 <p className="text-center text-gray-500">No schemes found</p>
               )}
             </div>

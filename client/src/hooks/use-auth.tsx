@@ -15,11 +15,14 @@ interface RegisterData {
   email: string;
   password: string;
   serviceNumber: string;
+  role?: string;
 }
 
 interface LoginData {
   email: string;
   password: string;
+  role?: string;
+  rememberMe?: boolean;
 }
 
 interface AuthContextType {
@@ -29,6 +32,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   login: (data: LoginData) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,13 +45,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const checkAuth = async () => {
+  const refreshUser = async () => {
     try {
       const response = await apiRequest("GET", "/api/auth/me");
       const data = await response.json();
       setUser(data);
     } catch (error) {
       setUser(null);
+      throw error;
+    }
+  };
+
+  const checkAuth = async () => {
+    try {
+      await refreshUser();
+    } catch {
+      // ignore
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         login,
         logout,
+        refreshUser,
       }}
     >
       {children}

@@ -9,10 +9,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 export function AadhaarVerification() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [verificationType, setVerificationType] = useState<"OTP" | "BIOMETRIC">("OTP");
   const [otp, setOtp] = useState("");
@@ -57,13 +59,19 @@ export function AadhaarVerification() {
       });
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
+        try {
+          await refreshUser();
+        } catch {
+          // ignore refresh errors; user can still proceed
+        }
         setStep("COMPLETE");
         toast({
           title: "Verification Successful",
           description: "Your Aadhaar has been successfully verified.",
         });
+        setLocation("/dashboard");
       } else {
         toast({
           title: "Verification Failed",
@@ -90,13 +98,19 @@ export function AadhaarVerification() {
       });
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
+        try {
+          await refreshUser();
+        } catch {
+          // ignore refresh errors; user can still proceed
+        }
         setStep("COMPLETE");
         toast({
           title: "Verification Successful",
           description: "Your Aadhaar has been successfully verified using biometrics.",
         });
+        setLocation("/dashboard");
       } else {
         toast({
           title: "Verification Failed",
